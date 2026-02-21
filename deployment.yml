@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: digibuddy-stress-predictor
+  labels:
+    app: digibuddy-stress-predictor
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: digibuddy-stress-predictor
+  template:
+    metadata:
+      labels:
+        app: digibuddy-stress-predictor
+    spec:
+      containers:
+        - name: digibuddy-stress-predictor
+          image: image-registry.apps.2.rahti.csc.fi/sdx-assignment-tngo/digibuddy-stress-predictor:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: digibuddy-stress-predictor
+  labels:
+    app: digibuddy-stress-predictor
+spec:
+  selector:
+    app: digibuddy-stress-predictor
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: digibuddy-stress-predictor
+  labels:
+    app: digibuddy-stress-predictor
+spec:
+  to:
+    kind: Service
+    name: digibuddy-stress-predictor
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None
