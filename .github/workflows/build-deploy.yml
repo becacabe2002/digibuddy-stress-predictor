@@ -1,0 +1,43 @@
+name: Build Docker Image and Deploy to Rahti CSC
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted   # must have docker + oc installed and logged-out
+
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@v4
+
+      # Log in to OpenShift (Rahti)
+      - name: Log in to OpenShift
+        uses: redhat-actions/oc-login@v1
+        with:
+          openshift_server_url: https://api.2.rahti.csc.fi:6443
+          openshift_token: ${{ secrets.RAHTI_TOKEN }}
+          insecure_skip_tls_verify: true
+          namespace: sdx-assignment-tngo
+
+      # Log in to Rahti image registry using the same token
+      - name: Log in to Rahti image registry
+        run: |
+          echo "${{ secrets.RAHTI_TOKEN }}" \
+            | docker login image-registry.apps.2.rahti.csc.fi \
+                -u openshift --password-stdin
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t image-registry.apps.2.rahti.csc.fi/sdx-assignment-tngo/digibuddy-stress-predictor:latest \
+            --no-cache .
+
+      - name: Push Docker image
+        run: |
+          docker push image-registry.apps.2.rahti.csc.fi/sdx-assignment-tngo/digibuddy-stress-predictor:latest
+
+      - name: Apply OpenShift deployment
+        run: |
+          oc apply -f deployment.yml
